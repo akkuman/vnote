@@ -1526,7 +1526,7 @@ const QTreeWidgetItem *VUtils::topLevelTreeItem(const QTreeWidgetItem *p_item)
     }
 
     if (p_item->parent()) {
-        return p_item->parent();
+        return topLevelTreeItem(p_item->parent());
     } else {
         return p_item;
     }

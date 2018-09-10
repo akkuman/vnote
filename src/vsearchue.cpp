@@ -18,10 +18,13 @@
 #include "veditarea.h"
 #include "vexplorer.h"
 #include "vuniversalentry.h"
+#include "vconfigmanager.h"
 
 extern VNote *g_vnote;
 
 extern VMainWindow *g_mainWin;
+
+extern VConfigManager *g_config;
 
 #define ITEM_NUM_TO_UPDATE_WIDGET 20
 
@@ -913,8 +916,28 @@ void VSearchUE::activateItem(const QSharedPointer<VSearchResultItem> &p_item)
     switch (p_item->m_type) {
     case VSearchResultItem::Note:
     {
+        bool highlightPage = g_config->getHighlightMatchesInPage()
+                             && p_item->m_matchType == VSearchResultItem::LineNumber
+                             && !p_item->m_matches.isEmpty()
+                             && !p_item->m_config.isNull()
+                             && p_item->m_config->m_object == VSearchConfig::Content;
         QStringList files(p_item->m_path);
-        g_mainWin->openFiles(files);
+        OpenFileMode mode = highlightPage ? OpenFileMode::Edit : OpenFileMode::Read;
+        QVector<VFile *> openedFiles = g_mainWin->openFiles(files,
+                                                            false,
+                                                            mode,
+                                                            true);
+        if (openedFiles.size() == 1) {
+            if (highlightPage) {
+                VEditTab *tab = g_mainWin->getCurrentTab();
+                if (tab->getFile() != openedFiles.first()) {
+                    break;
+                }
+
+                tab->findText(p_item->m_config->m_contentToken, true, true);
+            }
+        }
+
         break;
     }
 
@@ -923,6 +946,10 @@ void VSearchUE::activateItem(const QSharedPointer<VSearchResultItem> &p_item)
         VDirectory *dir = g_vnote->getInternalDirectory(p_item->m_path);
         if (dir) {
             g_mainWin->locateDirectory(dir);
+        } else {
+            // External directory.
+            g_mainWin->showExplorerPanel(true);
+            g_mainWin->getExplorer()->setRootDirectory(p_item->m_path);
         }
 
         break;
